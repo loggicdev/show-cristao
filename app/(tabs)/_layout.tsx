@@ -7,19 +7,29 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#1e3a8a',
+          backgroundColor: '#1e40af',
           borderTopColor: '#fbbf24',
-          borderTopWidth: 2,
+          borderTopWidth: 3,
+          height: 70,
+          paddingBottom: 10,
+          paddingTop: 10,
         },
         tabBarActiveTintColor: '#fbbf24',
         tabBarInactiveTintColor: '#94a3b8',
+        tabBarLabelStyle: {
+          fontSize: 14,
+          fontWeight: 'bold',
+        },
+        tabBarIconStyle: {
+          marginBottom: 4,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Início',
-          tabBarIcon: ({ size, color }) => (
-            <Home size={size} color={color} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <Home size={focused ? size + 4 : size} color={color} />
           ),
         }}
       />
@@ -27,8 +37,8 @@ export default function TabLayout() {
         name="quiz"
         options={{
           title: 'Quiz',
-          tabBarIcon: ({ size, color }) => (
-            <BookOpen size={size} color={color} />
+          tabBarIcon: ({ size, color, focused }) => (
+            <BookOpen size={focused ? size + 4 : size} color={color} />
           ),
         }}
       />
