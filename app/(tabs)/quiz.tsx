@@ -1,128 +1,53 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Animated, Dimensions } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, Dimensions, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Clock, SkipForward, X, Users, CircleCheck as CheckCircle, Chrome as Home, ArrowRight, BookOpen, Zap, Heart, Crown } from 'lucide-react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Clock, SkipForward, X, Users, Zap, Crown, BookOpen } from 'lucide-react-native';
+import questions from '../../data/questions';
+import characters from '../../data/characters';
 
-const { width, height } = Dimensions.get('window');
-
-interface Question {
-  id: number;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-  reference: string;
-  explanation: string;
-}
-
-interface Character {
-  name: string;
-  hint: string;
-  verse: string;
-  emoji: string;
-}
-
-const questions: Question[] = [
-  {
-    id: 1,
-    question: "Quem foi o primeiro homem criado por Deus?",
-    options: ["Abel", "Adão", "Noé", "Abraão"],
-    correctAnswer: 1,
-    reference: "Gênesis 2:7",
-    explanation: "Deus formou o homem do pó da terra e soprou em suas narinas o fôlego da vida."
-  },
-  {
-    id: 2,
-    question: "Quantos dias Jesus ficou no deserto?",
-    options: ["30 dias", "40 dias", "50 dias", "70 dias"],
-    correctAnswer: 1,
-    reference: "Mateus 4:2",
-    explanation: "Jesus jejuou quarenta dias e quarenta noites no deserto sendo tentado pelo diabo."
-  },
-  {
-    id: 3,
-    question: "Qual o nome da mãe de Jesus?",
-    options: ["Maria", "Marta", "Miriã", "Rebeca"],
-    correctAnswer: 0,
-    reference: "Lucas 1:27",
-    explanation: "O anjo Gabriel foi enviado por Deus a uma virgem chamada Maria."
-  },
-  {
-    id: 4,
-    question: "Quantos discípulos Jesus escolheu?",
-    options: ["10", "12", "14", "16"],
-    correctAnswer: 1,
-    reference: "Marcos 3:14",
-    explanation: "Jesus escolheu doze discípulos para estarem com Ele e para enviá-los a pregar."
-  },
-  {
-    id: 5,
-    question: "Em que cidade Jesus nasceu?",
-    options: ["Nazaré", "Jerusalém", "Belém", "Cafarnaum"],
-    correctAnswer: 2,
-    reference: "Lucas 2:4-7",
-    explanation: "José subiu da Galileia, da cidade de Nazaré, à Judeia, à cidade de Davi, chamada Belém."
-  }
-];
-
-const characters: Character[] = [
-  {
-    name: "Moisés",
-    hint: "Lembre-se das Escrituras que estudamos sobre as origens da humanidade...",
-    verse: "No princípio Deus criou os céus e a terra.",
-    emoji: "⚡"
-  },
-  {
-    name: "Paulo",
-    hint: "Considere os ensinamentos sobre provação, jejum e preparação espiritual...",
-    verse: "Em tudo somos atribulados, mas não angustiados.",
-    emoji: "✍️"
-  },
-  {
-    name: "João",
-    hint: "Relembre a história da anunciação do anjo e o nascimento do Salvador...",
-    verse: "E o Verbo se fez carne e habitou entre nós.",
-    emoji: "❤️"
-  },
-  {
-    name: "Pedro",
-    hint: "Pense nos ensinamentos sobre liderança e os escolhidos do Senhor...",
-    verse: "Tu és o Cristo, o Filho do Deus vivo.",
-    emoji: "🗝️"
-  },
-  {
-    name: "Davi",
-    hint: "Lembre-se das profecias sobre o local do nascimento do Messias...",
-    verse: "O Senhor é o meu pastor e nada me faltará.",
-    emoji: "👑"
-  }
-];
+const { height } = Dimensions.get('window');
 
 export default function QuizScreen() {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const params = useLocalSearchParams();
+  const [currentQuestion, setCurrentQuestion] = useState(() => {
+    if (params && params.questionIndex) {
+      const idx = parseInt(params.questionIndex as string, 10);
+      if (!isNaN(idx)) return idx;
+    }
+    return 0;
+  });
+  const question = questions[currentQuestion];
+  const character = characters[currentQuestion % characters.length];
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(30);
   const [showCharacters, setShowCharacters] = useState(false);
-  const [showResult, setShowResult] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [eliminatedOptions, setEliminatedOptions] = useState<number[]>([]);
   const [helpUsed, setHelpUsed] = useState({
     skip: false,
     eliminate: false,
     characters: false
   });
-
-  // Animações
+  // Feedback de resultado removido, agora só nas telas de sucesso/erro
+  const router = useRouter();
   const timerAnim = useRef(new Animated.Value(1)).current;
   const optionAnims = useRef([...Array(4)].map(() => new Animated.Value(1))).current;
-  const resultAnim = useRef(new Animated.Value(0)).current;
-  const confettiAnim = useRef(new Animated.Value(0)).current;
+  // ...
+
+  const resetQuiz = useCallback(() => {
+    setCurrentQuestion(0);
+    setSelectedAnswer(null);
+    setEliminatedOptions([]);
+    setHelpUsed({ skip: false, eliminate: false, characters: false });
+    setTimeLeft(30);
+    timerAnim.setValue(1);
+    optionAnims.forEach(anim => anim.setValue(1));
+    // Removido: estados e animações de feedback de resultado
+  }, [optionAnims, timerAnim]);
 
   useEffect(() => {
-    if (timeLeft > 0 && !showResult) {
+    if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      
-      // Animação de urgência quando restam 10 segundos
       if (timeLeft <= 10) {
         Animated.sequence([
           Animated.timing(timerAnim, {
@@ -137,39 +62,16 @@ export default function QuizScreen() {
           }),
         ]).start();
       }
-      
       return () => clearTimeout(timer);
     } else if (timeLeft === 0) {
       handleAnswer();
     }
-  }, [timeLeft, showResult]);
+  }, [timeLeft]);
 
-  useEffect(() => {
-    if (showResult) {
-      Animated.spring(resultAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-
-      if (isCorrect) {
-        Animated.timing(confettiAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }).start();
-      }
-    }
-  }, [showResult]);
-
-  const resetTimer = () => {
-    setTimeLeft(30);
-    timerAnim.setValue(1);
-  };
+  // ...
 
   const handleOptionPress = (index: number) => {
     setSelectedAnswer(index);
-    
-    // Animação de seleção
     Animated.sequence([
       Animated.timing(optionAnims[index], {
         toValue: 0.95,
@@ -186,132 +88,19 @@ export default function QuizScreen() {
 
   const handleAnswer = () => {
     const correct = selectedAnswer === questions[currentQuestion].correctAnswer;
-    setIsCorrect(correct);
-    setShowResult(true);
-  };
-
-  const skipQuestion = () => {
-    if (!helpUsed.skip) {
-      setHelpUsed({ ...helpUsed, skip: true });
-      nextQuestion();
-    }
-  };
-
-  const eliminateOption = () => {
-    if (!helpUsed.eliminate && eliminatedOptions.length < 2) {
-      const correctAnswer = questions[currentQuestion].correctAnswer;
-      const availableOptions = [0, 1, 2, 3].filter(
-        (index) => index !== correctAnswer && !eliminatedOptions.includes(index)
-      );
-      
-      if (availableOptions.length > 0) {
-        const randomIndex = Math.floor(Math.random() * availableOptions.length);
-        const optionToEliminate = availableOptions[randomIndex];
-        setEliminatedOptions([...eliminatedOptions, optionToEliminate]);
-        
-        if (eliminatedOptions.length === 1) {
-          setHelpUsed({ ...helpUsed, eliminate: true });
-        }
+    const nextIndex = currentQuestion + 1;
+    if (correct) {
+      if (nextIndex >= questions.length) {
+        router.replace('/QuizCompleteScreen');
+      } else {
+        router.replace(`/QuizSuccessScreen?questionIndex=${nextIndex}`);
       }
-    }
-  };
-
-  const showCharacterHelp = () => {
-    if (!helpUsed.characters) {
-      setHelpUsed({ ...helpUsed, characters: true });
-      setShowCharacters(true);
-    }
-  };
-
-  const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
-      setShowResult(false);
-      setEliminatedOptions([]);
-      resetTimer();
-      setHelpUsed({ skip: false, eliminate: false, characters: false });
-      resultAnim.setValue(0);
-      confettiAnim.setValue(0);
-      optionAnims.forEach(anim => anim.setValue(1));
     } else {
-      router.push('/(tabs)/');
+      router.replace('/QuizErrorScreen');
     }
   };
 
-  const goHome = () => {
-    router.push('/(tabs)/');
-  };
-
-  const question = questions[currentQuestion];
-  const character = characters[currentQuestion];
-  const timerProgress = timeLeft / 30;
-
-  if (showResult) {
-    return (
-      <LinearGradient 
-        colors={isCorrect ? ['#059669', '#10b981', '#34d399'] : ['#dc2626', '#ef4444', '#f87171']} 
-        style={styles.container}
-      >
-        {/* Confetti animation para acerto */}
-        {isCorrect && (
-          <Animated.View style={[styles.confettiContainer, { opacity: confettiAnim }]}>
-            <View style={[styles.confetti, styles.confetti1]} />
-            <View style={[styles.confetti, styles.confetti2]} />
-            <View style={[styles.confetti, styles.confetti3]} />
-            <View style={[styles.confetti, styles.confetti4]} />
-            <View style={[styles.confetti, styles.confetti5]} />
-          </Animated.View>
-        )}
-
-        <Animated.View style={[styles.resultContainer, { 
-          transform: [{ 
-            scale: resultAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.8, 1],
-            })
-          }] 
-        }]}>
-          <View style={styles.resultIcon}>
-            {isCorrect ? (
-              <CheckCircle size={100} color="#ffffff" />
-            ) : (
-              <X size={100} color="#ffffff" />
-            )}
-          </View>
-          
-          <Text style={styles.resultTitle}>
-            {isCorrect ? '🎉 PARABÉNS! 🎉' : '😔 Ops! Não foi dessa vez'}
-          </Text>
-          
-          <View style={styles.referenceCard}>
-            <View style={styles.referenceHeader}>
-              <BookOpen size={28} color="#fbbf24" />
-              <Text style={styles.referenceTitle}>Referência Bíblica</Text>
-            </View>
-            <Text style={styles.reference}>{question.reference}</Text>
-            <Text style={styles.explanation}>{question.explanation}</Text>
-          </View>
-
-          <View style={styles.resultButtons}>
-            <TouchableOpacity style={styles.resultButton} onPress={goHome}>
-              <LinearGradient colors={['#ffffff', '#f1f5f9']} style={styles.resultButtonGradient}>
-                <Home size={24} color="#1e40af" />
-                <Text style={styles.resultButtonText}>Início</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.resultButton} onPress={nextQuestion}>
-              <LinearGradient colors={['#fbbf24', '#f59e0b']} style={styles.resultButtonGradient}>
-                <ArrowRight size={24} color="#1e40af" />
-                <Text style={[styles.resultButtonText, { color: '#1e40af' }]}>Continuar</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </LinearGradient>
-    );
-  }
+  // Feedback de resultado removido, agora só nas telas de sucesso/erro
 
   return (
     <LinearGradient colors={['#1e40af', '#3b82f6']} style={styles.container}>
@@ -325,14 +114,9 @@ export default function QuizScreen() {
             <View style={[styles.progressFill, { width: `${((currentQuestion + 1) / questions.length) * 100}%` }]} />
           </View>
         </View>
-        
-        <Animated.View style={[styles.timerContainer, { transform: [{ scale: timerAnim }] }]}>
+        <Animated.View style={[styles.timerContainer, { transform: [{ scale: timerAnim }] }]}> 
           <View style={styles.timerCircle}>
-            <View style={[styles.timerProgress, { 
-              transform: [{ 
-                rotate: `${(1 - timerProgress) * 360}deg` 
-              }] 
-            }]} />
+            <View style={styles.timerProgress} />
             <View style={styles.timerInner}>
               <Clock size={20} color="#1e40af" />
               <Text style={styles.timerText}>{timeLeft}</Text>
@@ -361,7 +145,7 @@ export default function QuizScreen() {
             >
               <LinearGradient
                 colors={
-                  selectedAnswer === index 
+                  selectedAnswer === index
                     ? ['#fbbf24', '#f59e0b']
                     : eliminatedOptions.includes(index)
                     ? ['#94a3b8', '#64748b']
@@ -395,7 +179,13 @@ export default function QuizScreen() {
       <View style={styles.helpContainer}>
         <TouchableOpacity
           style={[styles.helpButton, helpUsed.skip && styles.helpButtonDisabled]}
-          onPress={skipQuestion}
+          onPress={() => {
+            setHelpUsed(prev => ({ ...prev, skip: true }));
+            setCurrentQuestion(q => (q + 1 < questions.length ? q + 1 : q));
+            setSelectedAnswer(null);
+            setTimeLeft(30);
+            optionAnims.forEach(anim => anim.setValue(1));
+          }}
           disabled={helpUsed.skip}
         >
           <LinearGradient
@@ -409,7 +199,17 @@ export default function QuizScreen() {
 
         <TouchableOpacity
           style={[styles.helpButton, helpUsed.eliminate && styles.helpButtonDisabled]}
-          onPress={eliminateOption}
+          onPress={() => {
+            if (!helpUsed.eliminate) {
+              // Elimina uma opção incorreta
+              const incorrectOptions = question.options.map((_, idx) => idx).filter(idx => idx !== question.correctAnswer && !eliminatedOptions.includes(idx));
+              if (incorrectOptions.length > 0) {
+                const toEliminate = incorrectOptions[Math.floor(Math.random() * incorrectOptions.length)];
+                setEliminatedOptions(prev => [...prev, toEliminate]);
+                setHelpUsed(prev => ({ ...prev, eliminate: true }));
+              }
+            }
+          }}
           disabled={helpUsed.eliminate}
         >
           <LinearGradient
@@ -423,7 +223,10 @@ export default function QuizScreen() {
 
         <TouchableOpacity
           style={[styles.helpButton, helpUsed.characters && styles.helpButtonDisabled]}
-          onPress={showCharacterHelp}
+          onPress={() => {
+            setShowCharacters(true);
+            setHelpUsed(prev => ({ ...prev, characters: true }));
+          }}
           disabled={helpUsed.characters}
         >
           <LinearGradient
@@ -461,7 +264,6 @@ export default function QuizScreen() {
               <Crown size={32} color="#fbbf24" />
               <Text style={styles.characterModalTitle}>Conselho dos Sábios</Text>
             </View>
-            
             <ScrollView style={styles.characterContent} showsVerticalScrollIndicator={false}>
               <View style={styles.characterCard}>
                 <View style={styles.characterHeader}>
@@ -475,7 +277,6 @@ export default function QuizScreen() {
                 </View>
               </View>
             </ScrollView>
-
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowCharacters(false)}
@@ -787,6 +588,48 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  // Estilos para feedback animado
+  confettiContainer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  confetti: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    backgroundColor: '#fbbf24',
+  },
+  confetti1: {
+    top: '20%',
+    left: '10%',
+    transform: [{ rotate: '45deg' }],
+  },
+  confetti2: {
+    top: '30%',
+    right: '15%',
+    backgroundColor: '#ffffff',
+    borderRadius: 5,
+  },
+  confetti3: {
+    top: '25%',
+    left: '70%',
+    backgroundColor: '#10b981',
+    transform: [{ rotate: '30deg' }],
+  },
+  confetti4: {
+    top: '40%',
+    left: '20%',
+    backgroundColor: '#ef4444',
+    borderRadius: 5,
+  },
+  confetti5: {
+    top: '35%',
+    right: '25%',
+    backgroundColor: '#8b5cf6',
+    transform: [{ rotate: '60deg' }],
+  },
   resultContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -867,45 +710,5 @@ const styles = StyleSheet.create({
     color: '#1e40af',
     marginLeft: 8,
   },
-  confettiContainer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    zIndex: 1,
-  },
-  confetti: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    backgroundColor: '#fbbf24',
-  },
-  confetti1: {
-    top: '20%',
-    left: '10%',
-    transform: [{ rotate: '45deg' }],
-  },
-  confetti2: {
-    top: '30%',
-    right: '15%',
-    backgroundColor: '#ffffff',
-    borderRadius: 5,
-  },
-  confetti3: {
-    top: '25%',
-    left: '70%',
-    backgroundColor: '#10b981',
-    transform: [{ rotate: '30deg' }],
-  },
-  confetti4: {
-    top: '40%',
-    left: '20%',
-    backgroundColor: '#ef4444',
-    borderRadius: 5,
-  },
-  confetti5: {
-    top: '35%',
-    right: '25%',
-    backgroundColor: '#8b5cf6',
-    transform: [{ rotate: '60deg' }],
-  },
 });
+

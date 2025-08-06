@@ -2,11 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Play, Star, Crown, Sparkles } from 'lucide-react-native';
+import { Play, Star, Sparkles, Crown } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
+
 export default function HomeScreen() {
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const sparkleAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -88,9 +90,9 @@ export default function HomeScreen() {
         <Animated.View style={[styles.sparkle, styles.sparkle2, { opacity: sparkleOpacity }]}>
           <Star size={16} color="#fbbf24" />
         </Animated.View>
-        <Animated.View style={[styles.sparkle, styles.sparkle3, { opacity: sparkleOpacity }]}>
+        {/* <Animated.View style={[styles.sparkle, styles.sparkle3, { opacity: sparkleOpacity }]}> 
           <Crown size={18} color="#fbbf24" />
-        </Animated.View>
+        </Animated.View> */}
         <Animated.View style={[styles.sparkle, styles.sparkle4, { opacity: sparkleOpacity }]}>
           <Sparkles size={14} color="#fbbf24" />
         </Animated.View>
@@ -120,7 +122,7 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Perguntas</Text>
           </View>
           <View style={styles.statCard}>
-            <Crown size={24} color="#fbbf24" />
+            <Star size={24} color="#fbbf24" />
             <Text style={styles.statNumber}>3</Text>
             <Text style={styles.statLabel}>Ajudas</Text>
           </View>
@@ -213,6 +215,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
   },
+  // ...
   title: {
     fontSize: 42,
     fontWeight: '900',
